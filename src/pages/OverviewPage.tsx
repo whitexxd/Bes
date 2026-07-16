@@ -1,47 +1,41 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  fetchTournaments,
-  fetchMyRegistrations,
-  fetchMatches,
-} from '../lib/tournamentService';
-import type { Tournament, Registration, Match } from '../lib/supabaseClient';
+import { fetchTournaments, fetchMatches } from '../lib/tournamentService';
+import type { Tournament, Match } from '../lib/supabaseClient';
 import { Card, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Calendar, Users, Swords, Trophy, Loader2, TrendingUp } from 'lucide-react';
+import { Calendar, Swords, Trophy, Loader2, TrendingUp, CheckCircle } from 'lucide-react';
 import type { DashTab } from '../components/DashboardLayout';
 
-const statusTone = (s: Tournament['status']) =>
-  s === 'active' ? 'emerald' : s === 'completed' ? 'slate' : 'amber';
+const statusTone: Record<Tournament['status'], 'amber' | 'emerald' | 'slate'> = {
+  upcoming: 'amber',
+  ongoing: 'emerald',
+  completed: 'slate',
+};
 
 export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab) => void }) {
-  const { player } = useAuth();
-  const isAdmin = player?.role === 'admin';
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [myRegs, setMyRegs] = useState<Registration[]>([]);
   const [recentMatches, setRecentMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [tours, regs] = await Promise.all([
-        fetchTournaments(),
-        player ? fetchMyRegistrations(player.id) : Promise.resolve([]),
-      ]);
+      const tours = await fetchTournaments();
       setTournaments(tours);
-      setMyRegs(regs as Registration[]);
 
-      const active = tours.find((t) => t.status === 'active') || tours[0];
+      const active = tours.find((t) => t.status === 'ongoing') || tours[0];
       if (active) {
-        const m = await fetchMatches(active.id);
-        setRecentMatches(m.filter((x) => x.status === 'completed').slice(-5).reverse());
+        const matches = await fetchMatches(active.id);
+        setRecentMatches(matches.filter((m) => m.status === 'finished').slice(-5).reverse());
       }
     } finally {
       setLoading(false);
     }
-  }, [player]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -55,33 +49,28 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
     );
   }
 
-  const activeCount = tournaments.filter((t) => t.status === 'active').length;
+  const activeCount = tournaments.filter((t) => t.status === 'ongoing').length;
   const upcomingCount = tournaments.filter((t) => t.status === 'upcoming').length;
+  const completedCount = tournaments.filter((t) => t.status === 'completed').length;
 
   const stats = [
     { label: 'Total Tournaments', value: tournaments.length, icon: Trophy, tone: 'text-emerald-400' },
-    { label: 'Active Now', value: activeCount, icon: TrendingUp, tone: 'text-sky-400' },
+    { label: 'Ongoing', value: activeCount, icon: TrendingUp, tone: 'text-sky-400' },
     { label: 'Upcoming', value: upcomingCount, icon: Calendar, tone: 'text-amber-400' },
-    {
-      label: isAdmin ? 'Players Managed' : 'My Registrations',
-      value: isAdmin ? tournaments.length : myRegs.length,
-      icon: Users,
-      tone: 'text-gray-300',
-    },
+    { label: 'Completed', value: completedCount, icon: CheckCircle, tone: 'text-gray-300' },
   ];
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">
-          Welcome, {player?.name || 'Player'}
+          Welcome, {profile?.username || profile?.full_name || 'User'}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
           {isAdmin ? 'Admin dashboard — manage the league' : 'Your tournament hub'}
         </p>
       </div>
 
-      {/* stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.map((s) => {
           const Icon = s.icon;
@@ -102,12 +91,11 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* my registrations / recent tournaments */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-lg flex items-center gap-2">
               <Calendar size={18} className="text-emerald-400" />
-              {isAdmin ? 'Recent Tournaments' : 'My Registrations'}
+              Tournaments
             </h2>
             <button onClick={() => onNavigate('tournaments')} className="text-xs text-emerald-400 hover:underline">
               View all
@@ -115,32 +103,16 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
           </div>
           <Card>
             <CardBody className="p-0">
-              {isAdmin ? (
-                tournaments.length === 0 ? (
-                  <p className="text-sm text-gray-500 px-6 py-8 text-center">No tournaments created yet.</p>
-                ) : (
-                  tournaments.slice(0, 5).map((t) => (
-                    <div key={t.id} className="flex items-center justify-between px-6 py-3 border-t border-gray-800/50 first:border-t-0">
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{t.name}</p>
-                        <p className="text-xs text-gray-500">{t.max_players} max players</p>
-                      </div>
-                      <Badge tone={statusTone(t.status)}>{t.status}</Badge>
-                    </div>
-                  ))
-                )
-              ) : myRegs.length === 0 ? (
-                <p className="text-sm text-gray-500 px-6 py-8 text-center">You haven't registered for any tournaments.</p>
+              {tournaments.length === 0 ? (
+                <p className="text-sm text-gray-500 px-6 py-8 text-center">No tournaments created yet.</p>
               ) : (
-                (myRegs as (Registration & { tournaments?: { name: string; status: string } })[]).slice(0, 5).map((r) => (
-                  <div key={r.id} className="flex items-center justify-between px-6 py-3 border-t border-gray-800/50 first:border-t-0">
+                tournaments.slice(0, 5).map((t) => (
+                  <div key={t.id} className="flex items-center justify-between px-6 py-3 border-t border-gray-800/50 first:border-t-0">
                     <div className="min-w-0">
-                      <p className="font-semibold truncate">{r.tournaments?.name || 'Tournament'}</p>
-                      <p className="text-xs text-gray-500 capitalize">{r.status}</p>
+                      <p className="font-semibold truncate">{t.name}</p>
+                      {t.start_date && <p className="text-xs text-gray-500">{t.start_date}</p>}
                     </div>
-                    <Badge tone={statusTone(r.tournaments?.status as Tournament['status'] || 'upcoming')}>
-                      {r.tournaments?.status || 'upcoming'}
-                    </Badge>
+                    <Badge tone={statusTone[t.status]}>{t.status}</Badge>
                   </div>
                 ))
               )}
@@ -148,7 +120,6 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
           </Card>
         </div>
 
-        {/* recent results */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-lg flex items-center gap-2">
@@ -167,12 +138,12 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
                 recentMatches.map((m) => (
                   <div key={m.id} className="flex items-center justify-between px-6 py-3 border-t border-gray-800/50 first:border-t-0">
                     <div className="flex items-center gap-2 text-sm min-w-0">
-                      <span className="font-semibold truncate">{m.player1?.name || 'TBD'}</span>
+                      <span className="font-semibold truncate">{m.team1_name}</span>
                       <span className="text-gray-600 text-xs">vs</span>
-                      <span className="font-semibold truncate">{m.player2?.name || 'TBD'}</span>
+                      <span className="font-semibold truncate">{m.team2_name}</span>
                     </div>
                     <span className="text-sm font-bold tabular-nums">
-                      {m.score1} : {m.score2}
+                      {m.team1_score} : {m.team2_score}
                     </span>
                   </div>
                 ))

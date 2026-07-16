@@ -1,93 +1,87 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { Card, CardBody, CardHeader } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input, Label, Textarea } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
+import { Modal } from '../components/ui/Modal';
+import { Calendar, Plus, Trash2, Play, CheckCircle, Loader2, Trophy, AlertCircle } from 'lucide-react';
 import {
   fetchTournaments,
   createTournament,
   updateTournament,
   deleteTournament,
-  fetchRegistrations,
-  registerForTournament,
-  withdrawFromTournament,
 } from '../lib/tournamentService';
-import type { Tournament, Registration } from '../lib/supabaseClient';
-import { Button } from '../components/ui/Button';
-import { Card, CardBody } from '../components/ui/Card';
-import { Input, Textarea, Label } from '../components/ui/Input';
-import { Modal } from '../components/ui/Modal';
-import { Badge } from '../components/ui/Badge';
-import { Calendar, Users, Plus, Trash2, CheckCircle2, LogIn, Loader2, Trophy } from 'lucide-react';
+import type { Tournament } from '../lib/supabaseClient';
+import { useEffect, useCallback } from 'react';
 
-const statusTone = (s: Tournament['status']) =>
-  s === 'active' ? 'emerald' : s === 'completed' ? 'slate' : 'amber';
+const statusTone: Record<Tournament['status'], 'amber' | 'emerald' | 'slate'> = {
+  upcoming: 'amber',
+  ongoing: 'emerald',
+  completed: 'slate',
+};
+
+const statusFlow: Record<Tournament['status'], Tournament['status'] | null> = {
+  upcoming: 'ongoing',
+  ongoing: 'completed',
+  completed: null,
+};
+
+const statusActionLabel: Record<Tournament['status'], string> = {
+  upcoming: 'Set Ongoing',
+  ongoing: 'Set Completed',
+  completed: 'Completed',
+};
 
 export default function TournamentsPage() {
-  const { player } = useAuth();
-  const isAdmin = player?.role === 'admin';
-
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [regMap, setRegMap] = useState<Record<string, Registration[]>>({});
-  const [myRegs, setMyRegs] = useState<Record<string, Registration | undefined>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const list = await fetchTournaments();
       setTournaments(list);
-      const allRegs: Record<string, Registration[]> = {};
-      const mine: Record<string, Registration | undefined> = {};
-      await Promise.all(
-        list.map(async (t) => {
-          const regs = await fetchRegistrations(t.id);
-          allRegs[t.id] = regs;
-          mine[t.id] = regs.find((r) => r.player_id === player?.id);
-        }),
-      );
-      setRegMap(allRegs);
-      setMyRegs(mine);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tournaments');
     } finally {
       setLoading(false);
     }
-  }, [player?.id]);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const handleRegister = async (tournamentId: string) => {
-    if (!player) return;
-    setBusyId(tournamentId);
+  const handleStatusChange = async (t: Tournament) => {
+    const next = statusFlow[t.status];
+    if (!next) return;
+    setBusyId(t.id);
     try {
-      await registerForTournament(tournamentId, player.id);
+      await updateTournament(t.id, { status: next });
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to register');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleWithdraw = async (registrationId: string, tournamentId: string) => {
-    setBusyId(tournamentId);
-    try {
-      await withdrawFromTournament(registrationId);
-      await load();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to withdraw');
+      setError(err instanceof Error ? err.message : 'Failed to update tournament');
     } finally {
       setBusyId(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this tournament? This cannot be undone.')) return;
+    setBusyId(id);
     try {
       await deleteTournament(id);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete');
+      setError(err instanceof Error ? err.message : 'Failed to delete tournament');
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -96,18 +90,22 @@ export default function TournamentsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Tournaments</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isAdmin ? 'Create and manage tournaments' : 'Browse and register for tournaments'}
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Create and manage tournament events</p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowCreate(true)}>
-            <span className="flex items-center gap-2">
-              <Plus size={16} /> New
-            </span>
-          </Button>
-        )}
+        <Button onClick={() => setShowCreate(true)} size="md">
+          <span className="flex items-center gap-2">
+            <Plus size={18} /> Create
+          </span>
+        </Button>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-4">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="ml-auto text-red-400/60 hover:text-red-400">×</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20 text-gray-500">
@@ -118,84 +116,57 @@ export default function TournamentsPage() {
           <CardBody className="flex flex-col items-center py-16 text-center">
             <Trophy size={40} className="text-gray-700 mb-4" />
             <p className="text-gray-400 font-medium">No tournaments yet</p>
-            <p className="text-sm text-gray-600 mt-1">
-              {isAdmin ? 'Create the first tournament to get started.' : 'Check back soon for new tournaments.'}
-            </p>
+            <p className="text-sm text-gray-600 mt-1">Click "Create" to add your first tournament.</p>
           </CardBody>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {tournaments.map((t) => {
-            const regs = regMap[t.id] || [];
-            const myReg = myRegs[t.id];
-            const isFull = regs.length >= t.max_players;
+            const next = statusFlow[t.status];
             return (
-              <Card key={t.id} className="hover:border-gray-700 transition-colors">
-                <CardBody>
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-bold text-lg">{t.name}</h3>
-                      <Badge tone={statusTone(t.status)}>{t.status}</Badge>
-                    </div>
-                    {isAdmin && (
-                      <button
-                        onClick={() => handleDelete(t.id)}
-                        className="text-gray-600 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+              <Card key={t.id}>
+                <CardHeader className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <h3 className="font-bold truncate">{t.name}</h3>
+                    {t.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>}
                   </div>
-
-                  {t.description && (
-                    <p className="text-sm text-gray-400 mb-4 line-clamp-2">{t.description}</p>
-                  )}
-
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
-                    <span className="flex items-center gap-1.5">
-                      <Users size={14} /> {regs.length}/{t.max_players}
-                    </span>
+                  <Badge tone={statusTone[t.status]}>{t.status}</Badge>
+                </CardHeader>
+                <CardBody>
+                  <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
                     {t.start_date && (
                       <span className="flex items-center gap-1.5">
-                        <Calendar size={14} /> {new Date(t.start_date).toLocaleDateString()}
+                        <Calendar size={14} /> {t.start_date}
                       </span>
                     )}
+                    {t.end_date && <span className="text-gray-600">→ {t.end_date}</span>}
                   </div>
 
-                  {isAdmin ? (
-                    <AdminTournamentControls tournament={t} regCount={regs.length} onUpdated={load} />
-                  ) : myReg ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-emerald-400">
-                        <CheckCircle2 size={16} /> Registered
-                      </div>
+                  <div className="flex items-center gap-2">
+                    {next && (
                       <Button
-                        variant="outline"
                         size="sm"
-                        className="w-full"
+                        variant={next === 'ongoing' ? 'primary' : 'outline'}
+                        onClick={() => handleStatusChange(t)}
                         disabled={busyId === t.id}
-                        onClick={() => handleWithdraw(myReg.id, t.id)}
                       >
-                        {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : 'Withdraw'}
+                        <span className="flex items-center gap-1.5">
+                          {next === 'ongoing' ? <Play size={14} /> : <CheckCircle size={14} />}
+                          {statusActionLabel[t.status]}
+                        </span>
                       </Button>
-                    </div>
-                  ) : isFull ? (
-                    <Button variant="secondary" size="sm" className="w-full" disabled>
-                      Tournament Full
-                    </Button>
-                  ) : (
+                    )}
                     <Button
                       size="sm"
-                      className="w-full"
+                      variant="ghost"
+                      onClick={() => handleDelete(t.id)}
                       disabled={busyId === t.id}
-                      onClick={() => handleRegister(t.id)}
+                      className="text-red-400 hover:bg-red-500/10"
                     >
-                      <span className="flex items-center justify-center gap-2">
-                        {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
-                        Register
-                      </span>
+                      <Trash2 size={14} />
                     </Button>
-                  )}
+                    {busyId === t.id && <Loader2 size={14} className="animate-spin text-gray-500" />}
+                  </div>
                 </CardBody>
               </Card>
             );
@@ -216,37 +187,6 @@ export default function TournamentsPage() {
   );
 }
 
-function AdminTournamentControls({
-  tournament,
-  regCount,
-  onUpdated,
-}: {
-  tournament: Tournament;
-  regCount: number;
-  onUpdated: () => void;
-}) {
-  const nextStatus: Tournament['status'] =
-    tournament.status === 'upcoming' ? 'active' : tournament.status === 'active' ? 'completed' : 'upcoming';
-
-  const cycle = async () => {
-    try {
-      await updateTournament(tournament.id, { status: nextStatus });
-      onUpdated();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update');
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500">{regCount} registered</span>
-      <Button variant="outline" size="sm" className="ml-auto" onClick={cycle}>
-        Set {nextStatus}
-      </Button>
-    </div>
-  );
-}
-
 function CreateTournamentModal({
   onClose,
   onCreated,
@@ -256,21 +196,25 @@ function CreateTournamentModal({
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState(16);
   const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setError('Tournament name is required');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
       await createTournament({
         name: name.trim(),
         description: description.trim(),
-        max_players: maxPlayers,
         start_date: startDate || null,
+        end_date: endDate || null,
       });
       onCreated();
     } catch (err) {
@@ -282,44 +226,45 @@ function CreateTournamentModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="New Tournament">
+    <Modal open onClose={onClose} title="Create Tournament">
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <Label>Tournament Name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Summer Showdown" required />
+          <Label>Name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Summer Cup 2026" required />
         </div>
         <div>
           <Label>Description</Label>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            placeholder="Tournament description"
             rows={3}
-            placeholder="Details about the tournament…"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>Max Players</Label>
-            <Input
-              type="number"
-              min={2}
-              value={maxPlayers}
-              onChange={(e) => setMaxPlayers(Number(e.target.value))}
-              required
-            />
-          </div>
-          <div>
             <Label>Start Date</Label>
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
+          <div>
+            <Label>End Date</Label>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
         </div>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+
+        {error && (
+          <div className="flex items-start gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button type="submit" className="flex-1" disabled={busy}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : 'Create'}
+          <Button type="submit" disabled={busy}>
+            {busy ? <Loader2 size={18} className="animate-spin" /> : 'Create'}
           </Button>
         </div>
       </form>

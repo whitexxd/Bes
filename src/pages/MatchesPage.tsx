@@ -1,43 +1,63 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  fetchTournaments,
-  fetchMatches,
-  fetchRegistrations,
-  createMatch,
-  updateMatchResult,
-  deleteMatch,
-} from '../lib/tournamentService';
-import type { Tournament, Match, Registration, Player } from '../lib/supabaseClient';
+import { fetchTournaments, fetchMatches, createMatch, updateMatch, deleteMatch } from '../lib/tournamentService';
+import type { Tournament, Match } from '../lib/supabaseClient';
+import { Card, CardBody, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Card, CardBody } from '../components/ui/Card';
-import { Modal } from '../components/ui/Modal';
+import { Input, Label } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Swords, Plus, Loader2, Trash2, Trophy } from 'lucide-react';
+import { Modal } from '../components/ui/Modal';
+import { Swords, Plus, Trash2, Loader2, AlertCircle, CheckCircle, Play } from 'lucide-react';
+
+const stageTone: Record<Match['stage'], 'slate' | 'sky' | 'amber' | 'emerald'> = {
+  group: 'slate',
+  quarter: 'sky',
+  semi: 'amber',
+  final: 'emerald',
+};
+
+const statusTone: Record<Match['status'], 'amber' | 'emerald' | 'slate'> = {
+  scheduled: 'amber',
+  ongoing: 'emerald',
+  finished: 'slate',
+};
+
+const stageLabels: Record<Match['stage'], string> = {
+  group: 'Group Stage',
+  quarter: 'Quarter-Final',
+  semi: 'Semi-Final',
+  final: 'Final',
+};
 
 export default function MatchesPage() {
-  const { player } = useAuth();
-  const isAdmin = player?.role === 'admin';
-
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedId, setSelectedId] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [scoringMatch, setScoringMatch] = useState<Match | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const loadTournaments = useCallback(async () => {
-    const list = await fetchTournaments();
-    setTournaments(list);
-    if (list.length && !selectedId) setSelectedId(list[0].id);
+    try {
+      const list = await fetchTournaments();
+      setTournaments(list);
+      if (list.length && !selectedId) setSelectedId(list[0].id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tournaments');
+    }
   }, [selectedId]);
 
   const loadMatches = useCallback(async () => {
     if (!selectedId) return;
     setLoading(true);
     try {
-      const m = await fetchMatches(selectedId);
-      setMatches(m);
+      const list = await fetchMatches(selectedId);
+      setMatches(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load matches');
     } finally {
       setLoading(false);
     }
@@ -51,31 +71,67 @@ export default function MatchesPage() {
     loadMatches();
   }, [loadMatches]);
 
-  const grouped = matches.reduce<Record<number, Match[]>>((acc, m) => {
-    (acc[m.round] ||= []).push(m);
-    return acc;
-  }, {});
-  const rounds = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+  const handleScoreSave = async (m: Match, s1: number, s2: number) => {
+    setBusyId(m.id);
+    try {
+      await updateMatch(m.id, { team1_score: s1, team2_score: s2, status: 'finished' });
+      await loadMatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update match');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleStatusCycle = async (m: Match) => {
+    const next: Match['status'] = m.status === 'scheduled' ? 'ongoing' : m.status === 'ongoing' ? 'finished' : 'scheduled';
+    setBusyId(m.id);
+    try {
+      await updateMatch(m.id, { status: next });
+      await loadMatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update match');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setBusyId(id);
+    try {
+      await deleteMatch(id);
+      await loadMatches();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete match');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Matches</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isAdmin ? 'Schedule matches and record results' : 'View match fixtures and results'}
-          </p>
+          <p className="text-sm text-gray-500 mt-1">Schedule and record match results</p>
         </div>
-        {isAdmin && selectedId && (
-          <Button onClick={() => setShowCreate(true)}>
+        {selectedId && (
+          <Button onClick={() => setShowCreate(true)} size="md">
             <span className="flex items-center gap-2">
-              <Plus size={16} /> Schedule
+              <Plus size={18} /> Add Match
             </span>
           </Button>
         )}
       </div>
 
-      {/* tournament selector */}
+      {error && (
+        <div className="flex items-start gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-4">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="ml-auto text-red-400/60 hover:text-red-400">×</button>
+        </div>
+      )}
+
       {tournaments.length > 0 && (
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
           {tournaments.map((t) => (
@@ -97,7 +153,7 @@ export default function MatchesPage() {
       {!selectedId ? (
         <Card>
           <CardBody className="flex flex-col items-center py-16 text-center">
-            <Trophy size={40} className="text-gray-700 mb-4" />
+            <Swords size={40} className="text-gray-700 mb-4" />
             <p className="text-gray-400 font-medium">No tournaments available</p>
           </CardBody>
         </Card>
@@ -109,31 +165,21 @@ export default function MatchesPage() {
         <Card>
           <CardBody className="flex flex-col items-center py-16 text-center">
             <Swords size={40} className="text-gray-700 mb-4" />
-            <p className="text-gray-400 font-medium">No matches scheduled</p>
-            <p className="text-sm text-gray-600 mt-1">
-              {isAdmin ? 'Schedule the first match for this tournament.' : 'Matches will appear here once scheduled.'}
-            </p>
+            <p className="text-gray-400 font-medium">No matches scheduled yet</p>
+            <p className="text-sm text-gray-600 mt-1">Click "Add Match" to create one.</p>
           </CardBody>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {rounds.map((round) => (
-            <div key={round}>
-              <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">
-                Round {round}
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {grouped[round].map((m) => (
-                  <MatchCard
-                    key={m.id}
-                    match={m}
-                    isAdmin={isAdmin}
-                    onScore={() => setScoringMatch(m)}
-                    onDeleted={loadMatches}
-                  />
-                ))}
-              </div>
-            </div>
+        <div className="space-y-3">
+          {matches.map((m) => (
+            <MatchRow
+              key={m.id}
+              match={m}
+              busy={busyId === m.id}
+              onScoreSave={handleScoreSave}
+              onStatusCycle={handleStatusCycle}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       )}
@@ -148,81 +194,110 @@ export default function MatchesPage() {
           }}
         />
       )}
-
-      {scoringMatch && (
-        <ScoreModal
-          match={scoringMatch}
-          onClose={() => setScoringMatch(null)}
-          onSaved={() => {
-            setScoringMatch(null);
-            loadMatches();
-          }}
-        />
-      )}
     </div>
   );
 }
 
-function MatchCard({
-  match,
-  isAdmin,
-  onScore,
-  onDeleted,
+function MatchRow({
+  match: m,
+  busy,
+  onScoreSave,
+  onStatusCycle,
+  onDelete,
 }: {
   match: Match;
-  isAdmin: boolean;
-  onScore: () => void;
-  onDeleted: () => void;
+  busy: boolean;
+  onScoreSave: (m: Match, s1: number, s2: number) => void;
+  onStatusCycle: (m: Match) => void;
+  onDelete: (id: string) => void;
 }) {
-  const p1 = match.player1;
-  const p2 = match.player2;
-  const done = match.status === 'completed';
+  const [editing, setEditing] = useState(false);
+  const [s1, setS1] = useState(String(m.team1_score));
+  const [s2, setS2] = useState(String(m.team2_score));
+
+  useEffect(() => {
+    setS1(String(m.team1_score));
+    setS2(String(m.team2_score));
+  }, [m.team1_score, m.team2_score]);
 
   return (
     <Card>
-      <CardBody>
-        <div className="flex items-center justify-between mb-3">
-          <Badge tone={done ? 'emerald' : 'amber'}>{done ? 'Completed' : 'Pending'}</Badge>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <button onClick={onScore} className="text-gray-500 hover:text-emerald-400 transition-colors text-xs font-semibold">
-                Record
-              </button>
-              <button
-                onClick={async () => {
-                  if (confirm('Delete this match?')) {
-                    await deleteMatch(match.id);
-                    onDeleted();
-                  }
-                }}
-                className="text-gray-600 hover:text-red-400 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+      <CardBody className="flex items-center gap-4 flex-wrap">
+        <Badge tone={stageTone[m.stage]}>{stageLabels[m.stage]}</Badge>
+
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="font-semibold truncate flex-1 text-right">{m.team1_name}</span>
+          {editing ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number"
+                min={0}
+                value={s1}
+                onChange={(e) => setS1(e.target.value)}
+                className="w-14 text-center px-2 py-1.5"
+              />
+              <span className="text-gray-600 text-xs">:</span>
+              <Input
+                type="number"
+                min={0}
+                value={s2}
+                onChange={(e) => setS2(e.target.value)}
+                className="w-14 text-center px-2 py-1.5"
+              />
             </div>
+          ) : (
+            <span className="text-lg font-bold tabular-nums px-3">
+              {m.status === 'finished' ? `${m.team1_score} : ${m.team2_score}` : 'vs'}
+            </span>
           )}
+          <span className="font-semibold truncate flex-1">{m.team2_name}</span>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate">{p1?.name || 'TBD'}</p>
-            <p className="text-xs text-gray-500 truncate">{p1?.efootball_id || '—'}</p>
-          </div>
+        <Badge tone={statusTone[m.status]}>{m.status}</Badge>
 
-          <div className="flex items-center gap-2 px-3">
-            {done ? (
-              <span className="text-xl font-bold tabular-nums">
-                {match.score1} <span className="text-gray-600">:</span> {match.score2}
-              </span>
-            ) : (
-              <span className="text-gray-600 text-sm font-semibold">vs</span>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0 text-right">
-            <p className="font-semibold truncate">{p2?.name || 'TBD'}</p>
-            <p className="text-xs text-gray-500 truncate">{p2?.efootball_id || '—'}</p>
-          </div>
+        <div className="flex items-center gap-1.5">
+          {editing ? (
+            <>
+              <Button
+                size="sm"
+                onClick={() => {
+                  onScoreSave(m, parseInt(s1) || 0, parseInt(s2) || 0);
+                  setEditing(false);
+                }}
+                disabled={busy}
+              >
+                <CheckCircle size={14} />
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)} disabled={busy}>
+                Score
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onStatusCycle(m)}
+                disabled={busy}
+                title="Cycle status"
+              >
+                <Play size={14} />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onDelete(m.id)}
+                disabled={busy}
+                className="text-red-400 hover:bg-red-500/10"
+              >
+                <Trash2 size={14} />
+              </Button>
+            </>
+          )}
+          {busy && <Loader2 size={14} className="animate-spin text-gray-500" />}
         </div>
       </CardBody>
     </Card>
@@ -238,23 +313,16 @@ function CreateMatchModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [regs, setRegs] = useState<Registration[]>([]);
-  const [round, setRound] = useState(1);
-  const [p1, setP1] = useState('');
-  const [p2, setP2] = useState('');
+  const [team1, setTeam1] = useState('');
+  const [team2, setTeam2] = useState('');
+  const [stage, setStage] = useState<Match['stage']>('group');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchRegistrations(tournamentId).then(setRegs).catch(() => setRegs([]));
-  }, [tournamentId]);
-
-  const players = regs.map((r) => r.players).filter(Boolean) as Pick<Player, 'id' | 'name' | 'efootball_id'>[];
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!p1 || !p2 || p1 === p2) {
-      setError('Select two different players');
+    if (!team1.trim() || !team2.trim()) {
+      setError('Both team names are required');
       return;
     }
     setBusy(true);
@@ -262,12 +330,13 @@ function CreateMatchModal({
     try {
       await createMatch({
         tournament_id: tournamentId,
-        player1_id: p1,
-        player2_id: p2,
-        round,
+        team1_name: team1.trim(),
+        team2_name: team2.trim(),
+        stage,
       });
       onCreated();
     } catch (err) {
+      console.error('Failed to create match:', err);
       setError(err instanceof Error ? err.message : 'Failed to create match');
     } finally {
       setBusy(false);
@@ -275,103 +344,45 @@ function CreateMatchModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Schedule Match">
+    <Modal open onClose={onClose} title="Add Match">
       <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Team 1</Label>
+            <Input value={team1} onChange={(e) => setTeam1(e.target.value)} placeholder="Team A" required />
+          </div>
+          <div>
+            <Label>Team 2</Label>
+            <Input value={team2} onChange={(e) => setTeam2(e.target.value)} placeholder="Team B" required />
+          </div>
+        </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Round</label>
-          <input
-            type="number"
-            min={1}
-            value={round}
-            onChange={(e) => setRound(Number(e.target.value))}
+          <Label>Stage</Label>
+          <select
+            value={stage}
+            onChange={(e) => setStage(e.target.value as Match['stage'])}
             className="w-full rounded-xl bg-gray-950/60 border border-gray-700 text-gray-100 px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Player 1</label>
-          <select value={p1} onChange={(e) => setP1(e.target.value)} className="w-full rounded-xl bg-gray-950/60 border border-gray-700 text-gray-100 px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500" required>
-            <option value="">Select player…</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.efootball_id})</option>
-            ))}
+          >
+            <option value="group">Group Stage</option>
+            <option value="quarter">Quarter-Final</option>
+            <option value="semi">Semi-Final</option>
+            <option value="final">Final</option>
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Player 2</label>
-          <select value={p2} onChange={(e) => setP2(e.target.value)} className="w-full rounded-xl bg-gray-950/60 border border-gray-700 text-gray-100 px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500" required>
-            <option value="">Select player…</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.efootball_id})</option>
-            ))}
-          </select>
-        </div>
-        {players.length < 2 && (
-          <p className="text-sm text-amber-400">At least 2 registered players are needed to schedule a match.</p>
+
+        {error && (
+          <div className="flex items-start gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
         )}
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button type="submit" className="flex-1" disabled={busy || players.length < 2}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : 'Schedule'}
+
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
           </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function ScoreModal({ match, onClose, onSaved }: { match: Match; onClose: () => void; onSaved: () => void }) {
-  const [s1, setS1] = useState(match.score1 ?? 0);
-  const [s2, setS2] = useState(match.score2 ?? 0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      await updateMatchResult(match.id, s1, s2);
-      onSaved();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save result');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal open onClose={onClose} title="Record Result">
-      <form onSubmit={submit} className="space-y-4">
-        <div className="flex items-center justify-center gap-6">
-          <div className="text-center flex-1">
-            <p className="font-semibold text-sm mb-2 truncate">{match.player1?.name || 'Player 1'}</p>
-            <input
-              type="number"
-              min={0}
-              value={s1}
-              onChange={(e) => setS1(Number(e.target.value))}
-              className="w-20 text-center text-3xl font-bold rounded-xl bg-gray-950/60 border border-gray-700 text-gray-100 px-3 py-2 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <span className="text-2xl text-gray-600 font-bold">:</span>
-          <div className="text-center flex-1">
-            <p className="font-semibold text-sm mb-2 truncate">{match.player2?.name || 'Player 2'}</p>
-            <input
-              type="number"
-              min={0}
-              value={s2}
-              onChange={(e) => setS2(Number(e.target.value))}
-              className="w-20 text-center text-3xl font-bold rounded-xl bg-gray-950/60 border border-gray-700 text-gray-100 px-3 py-2 focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-        </div>
-        {error && <p className="text-sm text-red-400 text-center">{error}</p>}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button type="submit" className="flex-1" disabled={busy}>
-            {busy ? <Loader2 size={16} className="animate-spin" /> : 'Save Result'}
+          <Button type="submit" disabled={busy}>
+            {busy ? <Loader2 size={18} className="animate-spin" /> : 'Add Match'}
           </Button>
         </div>
       </form>

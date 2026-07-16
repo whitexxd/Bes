@@ -10,7 +10,7 @@ import StandingsPage from './pages/StandingsPage';
 import { Trophy } from 'lucide-react';
 
 function AppContent() {
-  const { player, loading } = useAuth();
+  const { profile, loading } = useAuth();
   const [tab, setTab] = useState<DashTab>('overview');
 
   if (loading) {
@@ -26,7 +26,7 @@ function AppContent() {
     );
   }
 
-  if (!player) {
+  if (!profile) {
     return <LoginPage />;
   }
 

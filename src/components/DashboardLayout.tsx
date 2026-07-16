@@ -21,9 +21,10 @@ export function DashboardLayout({
   onNavigate: (tab: DashTab) => void;
   children: ReactNode;
 }) {
-  const { player, signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const isAdmin = player?.role === 'admin';
+  const isAdmin = profile?.role === 'admin';
+  const displayName = profile?.username || profile?.full_name || 'User';
 
   const NavList = () => (
     <nav className="flex flex-col gap-1">
@@ -53,15 +54,14 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* desktop sidebar */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 flex-col border-r border-gray-800 bg-gray-900/40 backdrop-blur-sm">
         <div className="flex items-center gap-3 px-6 py-6">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <Trophy size={22} className="text-gray-950" />
           </div>
           <div>
-            <p className="font-bold text-sm leading-tight">PES Manager</p>
-            <p className="text-xs text-gray-500">Tournament HQ</p>
+            <p className="font-bold text-sm leading-tight">Tournament Manager</p>
+            <p className="text-xs text-gray-500">League HQ</p>
           </div>
         </div>
         <div className="px-4 mt-2 flex-1">
@@ -75,8 +75,8 @@ export function DashboardLayout({
               <UserCircle size={18} className="text-gray-400 shrink-0" />
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold truncate">{player?.name || 'Player'}</p>
-              <p className="text-xs text-gray-500 capitalize">{player?.role || 'player'}</p>
+              <p className="text-sm font-semibold truncate">{displayName}</p>
+              <p className="text-xs text-gray-500 capitalize">{profile?.role || 'user'}</p>
             </div>
             <button
               onClick={signOut}
@@ -89,20 +89,18 @@ export function DashboardLayout({
         </div>
       </aside>
 
-      {/* mobile top bar */}
       <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/80 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
             <Trophy size={18} className="text-gray-950" />
           </div>
-          <span className="font-bold text-sm">PES Manager</span>
+          <span className="font-bold text-sm">Tournament Manager</span>
         </div>
         <button onClick={() => setMobileOpen((v) => !v)} className="text-gray-300">
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </header>
 
-      {/* mobile drawer */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-30">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
@@ -121,7 +119,6 @@ export function DashboardLayout({
         </div>
       )}
 
-      {/* main content */}
       <main className="lg:ml-64 p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
         {children}
       </main>

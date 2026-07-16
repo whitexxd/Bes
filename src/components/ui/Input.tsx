@@ -8,9 +8,13 @@ export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInput
 }
 
 export function Textarea({ className = '', ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={`${baseInput} ${className} resize-none`} {...rest} />;
+  return <textarea className={`${baseInput} resize-none ${className}`} {...rest} />;
 }
 
 export function Label({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">{children}</label>;
+  return (
+    <label className="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+      {children}
+    </label>
+  );
 }
