@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Input, Label } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
-import { Swords, Plus, Trash2, Loader2, AlertCircle, CheckCircle, Play } from 'lucide-react';
+import { Swords, Plus, Trash2, Loader as Loader2, CircleAlert as AlertCircle, CircleCheck as CheckCircle, Play } from 'lucide-react';
 
 const stageTone: Record<Match['stage'], 'slate' | 'sky' | 'amber' | 'emerald'> = {
   group: 'slate',

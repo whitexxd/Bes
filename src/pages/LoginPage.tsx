@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input, Label } from '../components/ui/Input';
-import { Trophy, Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { Trophy, Mail, Lock, User, CircleAlert as AlertCircle, Loader as Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();

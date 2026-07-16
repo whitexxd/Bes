@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, LayoutDashboard, Calendar, Swords, BarChart3, LogOut, Menu, X, Shield, UserCircle } from 'lucide-react';
+import { Trophy, LayoutDashboard, Calendar, Swords, BarChart3, LogOut, Menu, X, Shield, CircleUser as UserCircle } from 'lucide-react';
 
 export type DashTab = 'overview' | 'tournaments' | 'matches' | 'standings';
 

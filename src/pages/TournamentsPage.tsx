@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input, Label, Textarea } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
-import { Calendar, Plus, Trash2, Play, CheckCircle, Loader2, Trophy, AlertCircle } from 'lucide-react';
+import { Calendar, Plus, Trash2, Play, CircleCheck as CheckCircle, Loader as Loader2, Trophy, CircleAlert as AlertCircle } from 'lucide-react';
 import {
   fetchTournaments,
   createTournament,

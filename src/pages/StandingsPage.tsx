@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { fetchTournaments, fetchStandings } from '../lib/tournamentService';
 import type { Tournament, Standing } from '../lib/supabaseClient';
 import { Card, CardBody, CardHeader } from '../components/ui/Card';
-import { Loader2, BarChart3, Trophy, Medal } from 'lucide-react';
+import { Loader as Loader2, BarChart3, Trophy, Medal } from 'lucide-react';
 
 export default function StandingsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);

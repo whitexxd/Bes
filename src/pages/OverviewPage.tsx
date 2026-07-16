@@ -4,7 +4,7 @@ import { fetchTournaments, fetchMatches } from '../lib/tournamentService';
 import type { Tournament, Match } from '../lib/supabaseClient';
 import { Card, CardBody } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { Calendar, Swords, Trophy, Loader2, TrendingUp, CheckCircle } from 'lucide-react';
+import { Calendar, Swords, Trophy, Loader as Loader2, TrendingUp, CircleCheck as CheckCircle } from 'lucide-react';
 import type { DashTab } from '../components/DashboardLayout';
 
 const statusTone: Record<Tournament['status'], 'amber' | 'emerald' | 'slate'> = {
