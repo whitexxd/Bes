@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchTournaments, fetchMatches } from '../lib/tournamentService';
 import type { Tournament, Match } from '../lib/supabaseClient';
@@ -26,7 +26,6 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
     try {
       const tours = await fetchTournaments();
       setTournaments(tours);
-
       const active = tours.find((t) => t.status === 'ongoing') || tours[0];
       if (active) {
         const matches = await fetchMatches(active.id);
@@ -37,9 +36,7 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   if (loading) {
     return (
@@ -49,26 +46,18 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
     );
   }
 
-  const activeCount = tournaments.filter((t) => t.status === 'ongoing').length;
-  const upcomingCount = tournaments.filter((t) => t.status === 'upcoming').length;
-  const completedCount = tournaments.filter((t) => t.status === 'completed').length;
-
   const stats = [
     { label: 'Total Tournaments', value: tournaments.length, icon: Trophy, tone: 'text-emerald-400' },
-    { label: 'Ongoing', value: activeCount, icon: TrendingUp, tone: 'text-sky-400' },
-    { label: 'Upcoming', value: upcomingCount, icon: Calendar, tone: 'text-amber-400' },
-    { label: 'Completed', value: completedCount, icon: CheckCircle, tone: 'text-gray-300' },
+    { label: 'Ongoing', value: tournaments.filter((t) => t.status === 'ongoing').length, icon: TrendingUp, tone: 'text-sky-400' },
+    { label: 'Upcoming', value: tournaments.filter((t) => t.status === 'upcoming').length, icon: Calendar, tone: 'text-amber-400' },
+    { label: 'Completed', value: tournaments.filter((t) => t.status === 'completed').length, icon: CheckCircle, tone: 'text-gray-300' },
   ];
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">
-          Welcome, {profile?.username || profile?.full_name || 'User'}
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {isAdmin ? 'Admin dashboard — manage the league' : 'Your tournament hub'}
-        </p>
+        <h1 className="text-2xl font-bold">Welcome, {profile?.username || profile?.full_name || 'User'}</h1>
+        <p className="text-sm text-gray-500 mt-1">{isAdmin ? 'Admin dashboard — manage the league' : 'Your tournament hub'}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -93,13 +82,8 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              <Calendar size={18} className="text-emerald-400" />
-              Tournaments
-            </h2>
-            <button onClick={() => onNavigate('tournaments')} className="text-xs text-emerald-400 hover:underline">
-              View all
-            </button>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Calendar size={18} className="text-emerald-400" /> Tournaments</h2>
+            <button onClick={() => onNavigate('tournaments')} className="text-xs text-emerald-400 hover:underline">View all</button>
           </div>
           <Card>
             <CardBody className="p-0">
@@ -122,13 +106,8 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              <Swords size={18} className="text-sky-400" />
-              Recent Results
-            </h2>
-            <button onClick={() => onNavigate('matches')} className="text-xs text-emerald-400 hover:underline">
-              View all
-            </button>
+            <h2 className="font-bold text-lg flex items-center gap-2"><Swords size={18} className="text-sky-400" /> Recent Results</h2>
+            <button onClick={() => onNavigate('matches')} className="text-xs text-emerald-400 hover:underline">View all</button>
           </div>
           <Card>
             <CardBody className="p-0">
@@ -142,9 +121,7 @@ export default function OverviewPage({ onNavigate }: { onNavigate: (tab: DashTab
                       <span className="text-gray-600 text-xs">vs</span>
                       <span className="font-semibold truncate">{m.team2_name}</span>
                     </div>
-                    <span className="text-sm font-bold tabular-nums">
-                      {m.team1_score} : {m.team2_score}
-                    </span>
+                    <span className="text-sm font-bold tabular-nums">{m.team1_score} : {m.team2_score}</span>
                   </div>
                 ))
               )}

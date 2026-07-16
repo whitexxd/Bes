@@ -19,10 +19,7 @@ export function Modal({
       <div className="relative w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-900 shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <h3 className="text-lg font-bold text-gray-100">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-200 transition-colors"
-          >
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-200 transition-colors">
             <X size={20} />
           </button>
         </div>

@@ -54,14 +54,7 @@ export default function LoginPage() {
                 <Label>Username</Label>
                 <div className="relative">
                   <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                  <Input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Your username"
-                    required
-                    className="pl-10"
-                  />
+                  <Input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your username" required className="pl-10" />
                 </div>
               </div>
             )}
@@ -70,14 +63,7 @@ export default function LoginPage() {
               <Label>Email</Label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  className="pl-10"
-                />
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required className="pl-10" />
               </div>
             </div>
 
@@ -85,15 +71,7 @@ export default function LoginPage() {
               <Label>Password</Label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                  className="pl-10"
-                />
+                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="pl-10" />
               </div>
             </div>
 
@@ -109,42 +87,24 @@ export default function LoginPage() {
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 size={18} className="animate-spin" /> {mode === 'signin' ? 'Signing in…' : 'Creating account…'}
                 </span>
-              ) : mode === 'signin' ? (
-                'Sign In'
-              ) : (
-                'Sign Up'
-              )}
+              ) : mode === 'signin' ? 'Sign In' : 'Sign Up'}
             </Button>
           </form>
 
           <div className="mt-5 text-center text-sm text-gray-500">
             {mode === 'signin' ? (
-              <>
-                Don't have an account?{' '}
-                <button
-                  onClick={() => { setMode('signup'); setError(''); }}
-                  className="text-emerald-400 hover:underline font-semibold"
-                >
-                  Sign up
-                </button>
+              <>Don't have an account?{' '}
+                <button onClick={() => { setMode('signup'); setError(''); }} className="text-emerald-400 hover:underline font-semibold">Sign up</button>
               </>
             ) : (
-              <>
-                Already have an account?{' '}
-                <button
-                  onClick={() => { setMode('signin'); setError(''); }}
-                  className="text-emerald-400 hover:underline font-semibold"
-                >
-                  Sign in
-                </button>
+              <>Already have an account?{' '}
+                <button onClick={() => { setMode('signin'); setError(''); }} className="text-emerald-400 hover:underline font-semibold">Sign in</button>
               </>
             )}
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-6">
-          Tournament Manager · Built for the community
-        </p>
+        <p className="text-center text-xs text-gray-600 mt-6">Tournament Manager · Built for the community</p>
       </div>
     </div>
   );

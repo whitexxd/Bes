@@ -25,10 +25,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (error) {
       console.error('Failed to load profile:', error);
-      return;
+      return null;
     }
     setProfile(data as Profile);
+    return data as Profile | null;
   }, []);
+
+  // Fallback: if profile doesn't exist yet (trigger hasn't fired), create it manually
+  const ensureProfile = useCallback(async (userId: string, email: string, username?: string) => {
+    const existing = await loadProfile(userId);
+    if (existing) return existing;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
+        username: username || email.split('@')[0],
+        full_name: '',
+        role: 'user',
+      })
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to create profile:', error);
+      return null;
+    }
+    setProfile(data as Profile);
+    return data as Profile;
+  }, [loadProfile]);
 
   useEffect(() => {
     let mounted = true;
@@ -36,16 +61,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       if (data.session) {
-        loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
-      } else {
-        setLoading(false);
+        ensureProfile(data.session.user.id, data.session.user.email || '', data.session.user.user_metadata?.username);
       }
+      if (mounted) setLoading(false);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         if (event === 'SIGNED_IN' && session) {
-          await loadProfile(session.user.id);
+          await ensureProfile(
+            session.user.id,
+            session.user.email || '',
+            session.user.user_metadata?.username,
+          );
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
         }
@@ -56,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [ensureProfile]);
 
   const signUp = useCallback(async (email: string, password: string, username: string) => {
     const { data, error } = await supabase.auth.signUp({
@@ -66,17 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) throw error;
     if (data.user) {
-      await loadProfile(data.user.id);
+      await ensureProfile(data.user.id, email, username);
     }
-  }, [loadProfile]);
+  }, [ensureProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     if (data.user) {
-      await loadProfile(data.user.id);
+      await ensureProfile(data.user.id, email, data.user.user_metadata?.username);
     }
-  }, [loadProfile]);
+  }, [ensureProfile]);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();

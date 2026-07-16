@@ -26,9 +26,7 @@ function AppContent() {
     );
   }
 
-  if (!profile) {
-    return <LoginPage />;
-  }
+  if (!profile) return <LoginPage />;
 
   return (
     <DashboardLayout active={tab} onNavigate={setTab}>

@@ -1,8 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Tournament, Match, Standing } from './supabaseClient';
 
-// ── Tournaments ──────────────────────────────────────────────
-
 export async function fetchTournaments(): Promise<Tournament[]> {
   const { data, error } = await supabase
     .from('tournaments')
@@ -18,7 +16,6 @@ export async function createTournament(payload: {
   start_date?: string | null;
   end_date?: string | null;
 }): Promise<Tournament> {
-  // created_by is defaulted to auth.uid() by the database
   const { data, error } = await supabase
     .from('tournaments')
     .insert({
@@ -51,8 +48,6 @@ export async function deleteTournament(id: string): Promise<void> {
   const { error } = await supabase.from('tournaments').delete().eq('id', id);
   if (error) throw error;
 }
-
-// ── Matches ──────────────────────────────────────────────────
 
 export async function fetchMatches(tournamentId: string): Promise<Match[]> {
   const { data, error } = await supabase
@@ -101,8 +96,6 @@ export async function deleteMatch(id: string): Promise<void> {
   const { error } = await supabase.from('matches').delete().eq('id', id);
   if (error) throw error;
 }
-
-// ── Standings ─────────────────────────────────────────────────
 
 export async function fetchStandings(tournamentId: string): Promise<Standing[]> {
   const { data, error } = await supabase

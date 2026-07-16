@@ -34,10 +34,7 @@ export function DashboardLayout({
         return (
           <button
             key={item.key}
-            onClick={() => {
-              onNavigate(item.key);
-              setMobileOpen(false);
-            }}
+            onClick={() => { onNavigate(item.key); setMobileOpen(false); }}
             className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
               isActive
                 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
@@ -69,20 +66,12 @@ export function DashboardLayout({
         </div>
         <div className="px-4 pb-6">
           <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-gray-950/50 border border-gray-800">
-            {isAdmin ? (
-              <Shield size={18} className="text-emerald-400 shrink-0" />
-            ) : (
-              <UserCircle size={18} className="text-gray-400 shrink-0" />
-            )}
+            {isAdmin ? <Shield size={18} className="text-emerald-400 shrink-0" /> : <UserCircle size={18} className="text-gray-400 shrink-0" />}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate">{displayName}</p>
               <p className="text-xs text-gray-500 capitalize">{profile?.role || 'user'}</p>
             </div>
-            <button
-              onClick={signOut}
-              className="text-gray-500 hover:text-red-400 transition-colors"
-              title="Sign out"
-            >
+            <button onClick={signOut} className="text-gray-500 hover:text-red-400 transition-colors" title="Sign out">
               <LogOut size={18} />
             </button>
           </div>
@@ -107,10 +96,7 @@ export function DashboardLayout({
           <div className="absolute top-16 left-0 right-0 bg-gray-900 border-b border-gray-800 p-4 shadow-xl">
             <NavList />
             <button
-              onClick={() => {
-                signOut();
-                setMobileOpen(false);
-              }}
+              onClick={() => { signOut(); setMobileOpen(false); }}
               className="flex items-center gap-3 px-4 py-2.5 mt-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 w-full"
             >
               <LogOut size={18} /> Sign out
